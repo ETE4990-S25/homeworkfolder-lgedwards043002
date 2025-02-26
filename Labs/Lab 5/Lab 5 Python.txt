@@ -1,0 +1,57 @@
+import unittest
+
+class Hero:
+    def __init__(self):
+        self.stats = {
+            "Level": 7,
+            "Vigor": 14,
+            "Mind": 9,
+            "Endurance": 12,
+            "Strength": 16,
+            "Dexterity": 9,
+            "Intelligence": 7,
+            "Faith": 8,
+            "Arcane": 11
+
+        }
+        
+    def get_stats(self):
+        return self.stats
+
+
+    def display_stats(self):
+        print("+--------------+")
+        for key, value in self.stats.items():
+            print(f"| {key}: {value} |")
+    print("+--------------+")
+
+def main():
+    print("Available Classes:")
+    print("1. Hero")
+    input("Press ENTER to show stats...")
+    
+    hero = Hero()
+    hero.display_stats()
+    
+if __name__ == "__main__":
+    main()
+
+#Unit Test Class
+class TestHero(unittest.TestCase):
+    def test_hero_stats(self):
+        hero = Hero()
+        expected_stats = {
+            "Level": 7,
+            "Vigor": 14,
+            "Mind": 9,
+            "Endurance": 12,
+            "Strength": 16,
+            "Dexterity": 9,
+            "Intelligence": 7,
+            "Faith": 8,
+            "Arcane": 11
+        }
+        self.assertEqual(hero.get_stats(), expected_stats)
+
+    if __name__ == "__main__":
+        unittest.main()

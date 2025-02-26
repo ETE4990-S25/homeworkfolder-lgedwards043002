@@ -1,0 +1,87 @@
+class Goat:
+    def __init__(self, name):
+        self.name = name
+        self.usefulness = ["Milk ", "Meat ", "Weed Control "]
+        self.purpose = "Provides milk, meat, and clears overgrown weeds"
+
+    def get_usefulness(self):
+        return f"{self.name} is useful for: {','.join(self.usefulness)}."
+    
+    def get_purpose(self):
+        return f"{self.name}'s purpose: {self.purpose}"
+
+
+class Chickens:
+    def __init__(self, name):
+        self.name = name
+        self.usefulness = [" Eggs ", " Chicken breast ", " Feathers "]
+        self.purpose = "Provides eggs, meat from slaughter, and feathers for miscellaneous uses"
+
+    def get_usefulness(self):
+        return f"{self.name} is useful for: {','.join(self.usefulness)}."
+    
+    def get_purpose(self):
+        return f"{self.name}'s purpose: {self.purpose}"
+
+
+class Bees:
+    def __init__(self, name):
+        self.name = name
+        self.usefulness = [" Honey", " Pollination ", " Vegetation"]
+        self.purpose = "Provides honey for food, pollinates plants, and maintains healthy vegetation"
+
+    def get_usefulness(self):
+        return f"{self.name} is useful for: {','.join(self.usefulness)}."
+    
+    def get_purpose(self):
+        return f"{self.name}'s purpose: {self.purpose}"
+
+
+class Cows:
+    def __init__(self, name):
+        self.name = name
+        self.usefulness = ["Milk", " Steak ", " Manure"]
+        self.purpose = "Provides milk, steak (medium), and manure for crops"
+
+    def get_usefulness(self):
+        return f"{self.name} is useful for: {','.join(self.usefulness)}."
+    
+    def get_purpose(self):
+        return f"{self.name}'s purpose: {self.purpose}"
+
+
+class Sheep:
+    def __init__(self, name):
+        self.name = name
+        self.usefulness = ["Food ", " Wool", " Milk"]
+        self.purpose = "Provides meat, wool for clothing, and milk"
+
+    def get_usefulness(self):
+        return f"{self.name} is useful for: {','.join(self.usefulness)}."
+    
+    def get_purpose(self):
+        return f"{self.name}'s purpose: {self.purpose}"
+
+
+# Farm class to manage animals
+class Farm:
+    def __init__(self):
+        self.animals = []
+
+    def add_animal(self):
+        name = input("Enter the animal's name: ")
+        species = input("Enter the species (Goat, Chicken, Bee, Cow, Sheep): ").strip().lower()
+
+        if species == "goat":
+            animal = Goat(name)
+        elif species == "chicken":
+            animal = Chickens(name)
+        elif species == "bee":
+            animal = Bees(name)
+        elif species == "cow":
+            animal = Cows(name)
+        elif species == "sheep":
+            animal = Sheep(name)
+        else:
+            print("Invalid species! Try again.")
+            return
