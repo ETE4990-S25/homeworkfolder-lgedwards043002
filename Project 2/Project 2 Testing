@@ -1,66 +1,24 @@
 import time
-import math
-import sys
 from multiprocessing import Process, Queue, cpu_count
 
-sys.stdout.flush()
-
 def is_prime(n):
-    if n <= 3:
-        return n > 1
-    if n % 2 == 0 or n % 3 == 0:
+    if n <= 1:
         return False
-    i = 5
-    w = 2
-    while i * i <= n:
+    for i in range(2, int(n ** 0.5) + 1):
         if n % i == 0:
             return False
-        
-        i += w
-        w = 6 -w
-    
     return True
 
 def prime_batch_worker(start, end, result_queue):
     highest = 2
     if start % 2 == 0:
         start += 1
-
     for n in range(start, end, 2):
         if is_prime(n):
             highest = n
-
-    print(f"[Worker {start}-{end}] → Highest prime: {highest}")  
     result_queue.put(highest)
 
-
-# if __name__ == "__main__":
-#     RANGE_START = 100_000_000
-#     RANGE_END = 200_000_000
-#     NUM_PROCESSES = cpu_count()
-
-#     step = (RANGE_END - RANGE_START) // NUM_PROCESSES
-#     q = Queue()
-#     processes = []
-
-#     start_time = time.time()
-
-#     for i in range(NUM_PROCESSES):
-#         batch_start = RANGE_START + i * step
-#         batch_end = batch_start + step if i < NUM_PROCESSES - 1 else RANGE_END
-#         p = Process(target=prime_batch_worker, args=(batch_start, batch_end, q))
-#         processes.append(p)
-#         p.start()
-
-#     for p in processes:
-#         p.join()
-
-#     highest_primes = [q.get() for _ in range(NUM_PROCESSES)]
-#     elapsed = time.time() - start_time
-
-#     print(f"Fast Multi-core: {max(highest_primes):,} ({NUM_PROCESSES} cores) in {elapsed:.2f} seconds")
-
-def run_timed_benchmark(duration_sec=6, batch_size=1_000_000):
+def run_multi_core(duration_sec=3, batch_size=1_000_000):
     num_cores = cpu_count()
     q = Queue()
     processes = []
@@ -68,8 +26,7 @@ def run_timed_benchmark(duration_sec=6, batch_size=1_000_000):
     end_time = time.time() + duration_sec
 
     for i in range(num_cores):
-        p = Process(target=prime_batch_worker,
-                    args=(next_start, next_start + batch_size, q))
+        p = Process(target=prime_batch_worker, args=(next_start, next_start + batch_size, q))
         processes.append(p)
         p.start()
         next_start += batch_size
@@ -92,8 +49,7 @@ def run_timed_benchmark(duration_sec=6, batch_size=1_000_000):
         processes = new_processes
 
         while len(processes) < num_cores and time.time() < end_time:
-            p = Process(target=prime_batch_worker,
-                        args=(next_start, next_start + batch_size, q))
+            p = Process(target=prime_batch_worker, args=(next_start, next_start + batch_size, q))
             processes.append(p)
             p.start()
             next_start += batch_size
@@ -110,14 +66,128 @@ def run_timed_benchmark(duration_sec=6, batch_size=1_000_000):
         except:
             break
 
-    return highest, next_start, num_cores
-
+    return highest, num_cores
 
 if __name__ == "__main__":
-    start = time.time()
-    highest, numbers_checked, cores_used = run_timed_benchmark(duration_sec = 3)
-    elapsed = time.time() - start
-    print(f"Fast Multi-core: {highest:,} ({cores_used} cores) in {elapsed:.2f} seconds")
+    start_time = time.time()
+    highest, cores_used = run_multi_core(duration_sec=3)
+    elapsed = time.time() - start_time
+    print(f"Multi core: {highest:,} ({cores_used}) in {elapsed:.2f} seconds")
+
+
+
+# import time
+# import math
+# import sys
+# from multiprocessing import Process, Queue, cpu_count
+
+# sys.stdout.flush()
+
+# def is_prime(n):
+#     if n <= 1:
+#         return False
+#     for i in range(2, int(n ** 0.5) + 1):
+#         if n % i == 0:
+#             return False
+#     return True
+
+# def prime_batch_worker(start, end, result_queue):
+#     highest = 2
+#     if start % 2 == 0:
+#         start += 1
+
+#     for n in range(start, end, 2):
+#         if is_prime(n):
+#             highest = n
+
+#     print(f"[Worker {start}-{end}] → Highest prime: {highest}")  
+#     result_queue.put(highest)
+
+
+# # if __name__ == "__main__":
+# #     RANGE_START = 100_000_000
+# #     RANGE_END = 200_000_000
+# #     NUM_PROCESSES = cpu_count()
+
+# #     step = (RANGE_END - RANGE_START) // NUM_PROCESSES
+# #     q = Queue()
+# #     processes = []
+
+# #     start_time = time.time()
+
+# #     for i in range(NUM_PROCESSES):
+# #         batch_start = RANGE_START + i * step
+# #         batch_end = batch_start + step if i < NUM_PROCESSES - 1 else RANGE_END
+# #         p = Process(target=prime_batch_worker, args=(batch_start, batch_end, q))
+# #         processes.append(p)
+# #         p.start()
+
+# #     for p in processes:
+# #         p.join()
+
+# #     highest_primes = [q.get() for _ in range(NUM_PROCESSES)]
+# #     elapsed = time.time() - start_time
+
+# #     print(f"Fast Multi-core: {max(highest_primes):,} ({NUM_PROCESSES} cores) in {elapsed:.2f} seconds")
+
+# def run_timed_benchmark(duration_sec=6, batch_size=1_000_000):
+#     num_cores = cpu_count()
+#     q = Queue()
+#     processes = []
+#     next_start = 0
+#     end_time = time.time() + duration_sec
+
+#     for i in range(num_cores):
+#         p = Process(target=prime_batch_worker,
+#                     args=(next_start, next_start + batch_size, q))
+#         processes.append(p)
+#         p.start()
+#         next_start += batch_size
+
+#     highest = 2
+
+#     while time.time() < end_time:
+#         new_processes = []
+#         for p in processes:
+#             if not p.is_alive():
+#                 try:
+#                     result = q.get_nowait()
+#                     if result > highest:
+#                         highest = result
+#                 except:
+#                     pass
+#             else:
+#                 new_processes.append(p)
+
+#         processes = new_processes
+
+#         while len(processes) < num_cores and time.time() < end_time:
+#             p = Process(target=prime_batch_worker,
+#                         args=(next_start, next_start + batch_size, q))
+#             processes.append(p)
+#             p.start()
+#             next_start += batch_size
+
+#     for p in processes:
+#         p.terminate()
+#         p.join()
+
+#     while not q.empty():
+#         try:
+#             result = q.get_nowait()
+#             if result > highest:
+#                 highest = result
+#         except:
+#             break
+
+#     return highest, next_start, num_cores
+
+
+# if __name__ == "__main__":
+#     start = time.time()
+#     highest, numbers_checked, cores_used = run_timed_benchmark(duration_sec = 3)
+#     elapsed = time.time() - start
+#     print(f"Fast Multi-core: {highest:,} ({cores_used} cores) in {elapsed:.2f} seconds")
 
 
 
