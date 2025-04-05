@@ -1,5 +1,12 @@
 import time
-from multiprocessing import Process, Queue, cpu_count
+import os
+import math
+import psutil
+import gmpy2
+import asyncio
+from multiprocessing import Process, Value, set_start_method, Manager
+from ctypes import c_ulong
+from threading import Thread
 
 def is_prime(n):
     if n <= 1:
@@ -9,190 +16,203 @@ def is_prime(n):
             return False
     return True
 
-def prime_batch_worker(start, end, result_queue):
-    highest = 2
+def digit_estimate(n):
+    return int(n.bit_length() * math.log10(2)) + 1 if n > 0 else 1
+
+def calc_fib(n, result_holder):
+    result_holder["fib"] = gmpy2.fib(n)
+
+def calc_fact(n, result_holder):
+    result_holder["fact"] = gmpy2.fac(n)
+
+def prime_batch_worker(start, end, shared_highest, core_id):
+    try:
+        psutil.Process(os.getpid()).cpu_affinity([core_id])
+    except Exception:
+        pass
+    local_high = 2
     if start % 2 == 0:
         start += 1
     for n in range(start, end, 2):
         if is_prime(n):
-            highest = n
-    result_queue.put(highest)
+            local_high = n
+            with shared_highest.get_lock():
+                if local_high > shared_highest.value:
+                    shared_highest.value = local_high
 
-def run_multi_core(duration_sec=3, batch_size=1_000_000):
-    num_cores = cpu_count()
-    q = Queue()
-    processes = []
+def run_multi_core(duration_sec=180, batch_size=300_000, num_cores=8, estimated_batch_time=5):
+    shared_highest = Value(c_ulong, 2)
     next_start = 0
-    end_time = time.time() + duration_sec
+    start_time = time.time()
+    end_time = start_time + duration_sec
 
-    for i in range(num_cores):
-        p = Process(target=prime_batch_worker, args=(next_start, next_start + batch_size, q))
-        processes.append(p)
-        p.start()
-        next_start += batch_size
+    while True:
+        now = time.time()
+        if now + estimated_batch_time >= end_time:
+            break
 
-    highest = 2
-
-    while time.time() < end_time:
-        new_processes = []
-        for p in processes:
-            if not p.is_alive():
-                try:
-                    result = q.get_nowait()
-                    if result > highest:
-                        highest = result
-                except:
-                    pass
-            else:
-                new_processes.append(p)
-
-        processes = new_processes
-
-        while len(processes) < num_cores and time.time() < end_time:
-            p = Process(target=prime_batch_worker, args=(next_start, next_start + batch_size, q))
+        processes = []
+        for i in range(num_cores):
+            p = Process(target=prime_batch_worker,
+                        args=(next_start, next_start + batch_size, shared_highest, i))
             processes.append(p)
             p.start()
             next_start += batch_size
 
-    for p in processes:
-        p.terminate()
-        p.join()
+        for p in processes:
+            p.join()
 
-    while not q.empty():
-        try:
-            result = q.get_nowait()
-            if result > highest:
-                highest = result
-        except:
+        if time.time() >= end_time:
             break
 
-    return highest, num_cores
+    return shared_highest.value, num_cores
+
+def run_multiprocessing_version():
+    print("Running multiprocessing prime benchmark for 3 minutes...")
+    script_start = time.time()
+    prime, cores = run_multi_core()
+    elapsed = time.time() - script_start
+    print(f"Highest prime found: {prime:,} using {cores} cores")
+    print(f"Prime search completed in: {elapsed:.2f} seconds")
+    print(f"Calculating Fibonacci({prime}) and Factorial({prime}) in parallel...")
+
+    with Manager() as manager:
+        results = manager.dict()
+        fib_proc = Process(target=calc_fib, args=(prime, results))
+        fact_proc = Process(target=calc_fact, args=(prime, results))
+        fib_proc.start()
+        fact_proc.start()
+        fib_proc.join()
+        fact_proc.join()
+
+        fib_result = results.get("fib")
+        fact_result = results.get("fact")
+        fib_digits = digit_estimate(fib_result)
+        fact_digits = digit_estimate(fact_result)
+
+        print("\nThese are my results:")
+        print(f"Multi core:{prime:,} ({cores})")
+        print(f"Fibonacci({prime}) calculated. Estimated length: {fib_digits:,} digits")
+        print(f"Factorial({prime}) calculated. Estimated length: {fact_digits:,} digits")
+        print(f"Total time (including calculations): {time.time() - script_start:.2f} seconds")
+
+def run_threaded_version():
+    print("Running threaded prime benchmark for 3 minutes...")
+    script_start = time.time()
+    deadline = script_start + 180
+    batch_size = 300_000
+    current = 3
+    num_cores = 8
+
+    manager = Manager()
+    results = manager.dict()
+    results["prime"] = 2
+    lock = manager.Lock()
+
+    def threaded_batch(start, end):
+        local_high = 2
+        for n in range(start, end, 2):
+            if is_prime(n):
+                local_high = n
+        with lock:
+            if local_high > results["prime"]:
+                results["prime"] = local_high
+
+    while True:
+        now = time.time()
+        if now + 5 >= deadline:
+            break
+
+        threads = []
+        for _ in range(num_cores):
+            t = Thread(target=threaded_batch, args=(current, current + batch_size))
+            threads.append(t)
+            t.start()
+            current += batch_size
+
+        for t in threads:
+            t.join()
+
+        if time.time() >= deadline:
+            break
+
+    prime = results["prime"]
+    print(f"Highest prime found: {prime:,} using {num_cores} threads")
+    print(f"Calculating Fibonacci({prime}) and Factorial({prime}) in parallel...")
+
+    fib_thread = Thread(target=calc_fib, args=(prime, results))
+    fact_thread = Thread(target=calc_fact, args=(prime, results))
+    fib_thread.start()
+    fact_thread.start()
+    fib_thread.join()
+    fact_thread.join()
+
+    fib_digits = digit_estimate(results["fib"])
+    fact_digits = digit_estimate(results["fact"])
+
+    print("\nThese are my results:")
+    print(f"Threaded:{prime:,} ({num_cores})")
+    print(f"Fibonacci({prime}) calculated. Estimated length: {fib_digits:,} digits")
+    print(f"Factorial({prime}) calculated. Estimated length: {fact_digits:,} digits")
+    print(f"Total time (including calculations): {time.time() - script_start:.2f} seconds")
+
+async def async_prime_search(duration_sec=180, batch_size=300_000):
+    start_time = time.time()
+    end_time = start_time + duration_sec
+    highest = 2
+    current = 3
+
+    while True:
+        now = time.time()
+        if now + 5 >= end_time:
+            break
+
+        batch_end = current + batch_size
+        for n in range(current, batch_end, 2):
+            if is_prime(n) and n > highest:
+                highest = n
+        current = batch_end
+
+        if time.time() >= end_time:
+            break
+
+    return highest
+
+async def run_async_version():
+    print("Running async prime benchmark for 3 minutes...")
+    script_start = time.time()
+    prime = await async_prime_search()
+    elapsed = time.time() - script_start
+    print(f"Highest prime found: {prime:,} using 1 core")
+    print(f"Prime search completed in: {elapsed:.2f} seconds")
+    print(f"Calculating Fibonacci({prime}) and Factorial({prime}) in parallel...")
+
+    fib_result, fact_result = await asyncio.gather(
+        asyncio.to_thread(gmpy2.fib, prime),
+        asyncio.to_thread(gmpy2.fac, prime)
+    )
+
+    fib_digits = digit_estimate(fib_result)
+    fact_digits = digit_estimate(fact_result)
+
+    print("\nThese are my results:")
+    print(f"Asycn:{prime:,} (1)")
+    print(f"Fibonacci({prime}) calculated. Estimated length: {fib_digits:,} digits")
+    print(f"Factorial({prime}) calculated. Estimated length: {fact_digits:,} digits")
+    print(f"Total time (including calculations): {time.time() - script_start:.2f} seconds")
 
 if __name__ == "__main__":
-    start_time = time.time()
-    highest, cores_used = run_multi_core(duration_sec=3)
-    elapsed = time.time() - start_time
-    print(f"Multi core: {highest:,} ({cores_used}) in {elapsed:.2f} seconds")
+    set_start_method("spawn", force=True)
+    run_multiprocessing_version()
+    asyncio.run(run_async_version())
+    run_threaded_version()
 
-
-
-# import time
-# import math
-# import sys
-# from multiprocessing import Process, Queue, cpu_count
-
-# sys.stdout.flush()
-
-# def is_prime(n):
-#     if n <= 1:
-#         return False
-#     for i in range(2, int(n ** 0.5) + 1):
-#         if n % i == 0:
-#             return False
-#     return True
-
-# def prime_batch_worker(start, end, result_queue):
-#     highest = 2
-#     if start % 2 == 0:
-#         start += 1
-
-#     for n in range(start, end, 2):
-#         if is_prime(n):
-#             highest = n
-
-#     print(f"[Worker {start}-{end}] → Highest prime: {highest}")  
-#     result_queue.put(highest)
-
-
-# # if __name__ == "__main__":
-# #     RANGE_START = 100_000_000
-# #     RANGE_END = 200_000_000
-# #     NUM_PROCESSES = cpu_count()
-
-# #     step = (RANGE_END - RANGE_START) // NUM_PROCESSES
-# #     q = Queue()
-# #     processes = []
-
-# #     start_time = time.time()
-
-# #     for i in range(NUM_PROCESSES):
-# #         batch_start = RANGE_START + i * step
-# #         batch_end = batch_start + step if i < NUM_PROCESSES - 1 else RANGE_END
-# #         p = Process(target=prime_batch_worker, args=(batch_start, batch_end, q))
-# #         processes.append(p)
-# #         p.start()
-
-# #     for p in processes:
-# #         p.join()
-
-# #     highest_primes = [q.get() for _ in range(NUM_PROCESSES)]
-# #     elapsed = time.time() - start_time
-
-# #     print(f"Fast Multi-core: {max(highest_primes):,} ({NUM_PROCESSES} cores) in {elapsed:.2f} seconds")
-
-# def run_timed_benchmark(duration_sec=6, batch_size=1_000_000):
-#     num_cores = cpu_count()
-#     q = Queue()
-#     processes = []
-#     next_start = 0
-#     end_time = time.time() + duration_sec
-
-#     for i in range(num_cores):
-#         p = Process(target=prime_batch_worker,
-#                     args=(next_start, next_start + batch_size, q))
-#         processes.append(p)
-#         p.start()
-#         next_start += batch_size
-
-#     highest = 2
-
-#     while time.time() < end_time:
-#         new_processes = []
-#         for p in processes:
-#             if not p.is_alive():
-#                 try:
-#                     result = q.get_nowait()
-#                     if result > highest:
-#                         highest = result
-#                 except:
-#                     pass
-#             else:
-#                 new_processes.append(p)
-
-#         processes = new_processes
-
-#         while len(processes) < num_cores and time.time() < end_time:
-#             p = Process(target=prime_batch_worker,
-#                         args=(next_start, next_start + batch_size, q))
-#             processes.append(p)
-#             p.start()
-#             next_start += batch_size
-
-#     for p in processes:
-#         p.terminate()
-#         p.join()
-
-#     while not q.empty():
-#         try:
-#             result = q.get_nowait()
-#             if result > highest:
-#                 highest = result
-#         except:
-#             break
-
-#     return highest, next_start, num_cores
-
-
-# if __name__ == "__main__":
-#     start = time.time()
-#     highest, numbers_checked, cores_used = run_timed_benchmark(duration_sec = 3)
-#     elapsed = time.time() - start
-#     print(f"Fast Multi-core: {highest:,} ({cores_used} cores) in {elapsed:.2f} seconds")
-
-
-
-    
-
-
-
-
+#I started with a fixed range to find primes, but it didn’t stay under 3 minutes. 
+# Then I switched to a time-based approach to make sure the prime search stops right at 3 minutes. 
+# I learned that batch size and CPU cores need to be balanced. I tested different values and settled on 3,000,000 batch size with 8 cores. 
+# This gave me solid results without going over time. After the prime is found, I calculate its Fibonacci and Factorial. 
+# At first, they took too long or didn’t run, but I fixed it so they always run after the 3-minute search and finish in a reasonable time. 
+# I used multiprocessing, threading, and async. Multiprocessing gave the best results because it fully used all 8 cores. 
+# Threading also used 8 cores but was a bit slower. Async only used one core, which made it the slowest. 
+# I used ChatGPT to help test different versions and fix problems. 
+# I could’ve gone for a higher prime, but that would’ve gone over 3 minutes, so I focused on keeping it fast.
