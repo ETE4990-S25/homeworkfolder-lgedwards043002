@@ -1,0 +1,26 @@
+2025-04-11 20:42:55,022 - __main__ - ERROR - This is a error
+2025-04-11 20:44:53,210 - __main__ - ERROR - This is a error
+2025-04-11 20:44:53,210 - __main__ - ERROR - This is a error
+This is a error
+{'timestamp': ' 2025-04-27T12:10:00Z', 'level': 'ERROR', 'component': 'backend.flask', 'message': 'Failed to fetch user data'}
+{'timestamp': ' 2025-04-27T12:15:00Z', 'level': 'CRITICAL', 'component': 'backend.js', 'message': 'System failure detected'}
+2025-04-27 11:31:32,664, backend.flask, ERROR, Failed to fetch user data
+2025-04-27 11:31:32,665, backend.js, CRITICAL, System failure detected
+2025-04-27 11:33:14,483, backend.flask, ERROR, Failed to fetch user data
+2025-04-27 11:33:14,483, backend.flask, ERROR, Failed to fetch user data
+2025-04-27 11:33:14,487, backend.js, CRITICAL, System failure detected
+2025-04-27 11:33:14,487, backend.js, CRITICAL, System failure detected
+2025-04-27 11:34:21,729, backend.flask, ERROR, Failed to fetch user data
+2025-04-27 11:34:21,729, backend.flask, ERROR, Failed to fetch user data
+2025-04-27 11:34:21,729, backend.flask, ERROR, Failed to fetch user data
+2025-04-27 11:34:21,732, backend.js, CRITICAL, System failure detected
+2025-04-27 11:34:21,732, backend.js, CRITICAL, System failure detected
+2025-04-27 11:34:21,732, backend.js, CRITICAL, System failure detected
+2025-04-27 18:34:42,102, backend.flask, ERROR, Failed to fetch user data
+2025-04-27 18:34:42,117, backend.js, CRITICAL, System failure detected
+2025-04-27 18:35:10,462, backend.flask, ERROR, Failed to fetch user data
+2025-04-27 18:35:10,465, backend.js, CRITICAL, System failure detected
+2025-04-27 18:36:28,304, backend.flask, ERROR, Failed to fetch user data
+2025-04-27 18:36:28,306, backend.js, CRITICAL, System failure detected
+2025-04-27 18:41:03,313, backend.flask, ERROR, Failed to fetch user data
+2025-04-27 18:41:03,316, backend.js, CRITICAL, System failure detected

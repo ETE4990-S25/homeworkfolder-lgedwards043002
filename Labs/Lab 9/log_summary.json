@@ -1,0 +1,14 @@
+{
+    "'component': 'backend.flask'": {
+        "'message': 'Failed to fetch user data'}": 1
+    },
+    "'component': 'backend.js'": {
+        "'message': 'System failure detected'}": 1
+    },
+    "ERROR": {
+        "Failed to fetch user data": 10
+    },
+    "CRITICAL": {
+        "System failure detected": 10
+    }
+}
